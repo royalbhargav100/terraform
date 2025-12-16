@@ -1,0 +1,9 @@
+steps:
+  - task: TerraformTaskV4@4
+    displayName: 'Terraform Destroy'
+    inputs:
+      provider: 'azurerm'
+      command: 'destroy'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/$(terraformWorkingDirectory)'
+      environmentServiceNameAzureRM: '$(backendServiceArm)'
+      commandOptions: '-auto-approve'

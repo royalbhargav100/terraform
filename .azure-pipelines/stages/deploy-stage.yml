@@ -1,0 +1,24 @@
+stages:
+  - stage: Plan
+    displayName: 'Terraform Plan'
+    jobs:
+      - job: TerraformPlan
+        displayName: 'Plan Infrastructure Changes'
+        steps:
+          - template: ../templates/terraform-init.yml
+          - template: ../templates/terraform-plan.yml
+  - stage: Deploy
+    displayName: 'Deploy Infrastructure'
+    dependsOn: Plan
+    condition: succeeded()
+    jobs:
+      - job: ManualValidation
+        displayName: 'Await Validation'
+        pool: server
+        timeoutInMinutes: 1440
+      - job: TerraformApply
+        displayName: 'Apply Terraform Configuration'
+        dependsOn: ManualValidation
+        steps:
+          - template: ../templates/terraform-init.yml
+          - template: ../templates/terraform-apply.yml

@@ -1,0 +1,10 @@
+stages:
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: ValidateTerraform
+        displayName: 'Validate Terraform Configuration'
+        steps:
+          - template: ../templates/terraform-init.yml
+          - template: ../templates/terraform-validate.yml
+          - template: ../templates/security-scan.yml

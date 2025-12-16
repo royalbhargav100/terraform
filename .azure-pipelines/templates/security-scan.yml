@@ -1,0 +1,18 @@
+steps:
+  - task: TerraformTaskV4@4
+    displayName: 'Terraform Init'
+    inputs:
+      provider: 'azurerm'
+      command: 'init'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/$(terraformWorkingDirectory)'
+  - script: |
+      cd $(System.DefaultWorkingDirectory)/$(terraformWorkingDirectory)
+      terraform validate
+    displayName: 'Validate Terraform Configuration'
+  - script: |
+      cd $(System.DefaultWorkingDirectory)
+      if (-not (Test-Path "tfsec")) {
+        Write-Host "Installing tfsec..."
+      }
+    displayName: 'Setup Security Scanner'
+    condition: eq(variables['Agent.OS'], 'Windows_NT')

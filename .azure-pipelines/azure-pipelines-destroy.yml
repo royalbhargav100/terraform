@@ -1,0 +1,15 @@
+trigger: none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  terraformVersion: '1.5.0'
+  backendServiceArm: '$(AzureServiceConnection)'
+  backendResourceGroupName: 'rg-terraform-backend'
+  backendStorageAccountName: 'stgterraformbackend'
+  backendContainerName: 'tfstate'
+  terraformWorkingDirectory: 'environments/prod'
+
+extends:
+  template: ./stages/destroy-stage.yml

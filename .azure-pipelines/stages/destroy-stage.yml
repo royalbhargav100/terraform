@@ -1,0 +1,14 @@
+stages:
+  - stage: Destroy
+    displayName: 'Destroy Infrastructure'
+    jobs:
+      - job: ManualValidation
+        displayName: 'Confirm Destruction'
+        pool: server
+        timeoutInMinutes: 1440
+      - job: TerraformDestroy
+        displayName: 'Destroy Terraform Infrastructure'
+        dependsOn: ManualValidation
+        steps:
+          - template: ../templates/terraform-init.yml
+          - template: ../templates/terraform-destroy.yml

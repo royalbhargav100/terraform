@@ -1,0 +1,14 @@
+steps:
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Download Plan Artifact'
+    inputs:
+      artifactName: 'tfplan'
+      downloadPath: '$(System.DefaultWorkingDirectory)'
+  - task: TerraformTaskV4@4
+    displayName: 'Terraform Apply'
+    inputs:
+      provider: 'azurerm'
+      command: 'apply'
+      workingDirectory: '$(System.DefaultWorkingDirectory)/$(terraformWorkingDirectory)'
+      environmentServiceNameAzureRM: '$(backendServiceArm)'
+      commandOptions: '$(System.DefaultWorkingDirectory)/tfplan/tfplan'
