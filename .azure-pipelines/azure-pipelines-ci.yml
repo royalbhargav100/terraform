@@ -14,5 +14,49 @@ variables:
   backendStorageAccountName: 'stgterraformbackend'
   backendContainerName: 'tfstate'
 
-extends:
-  template: ./stages/build-stage.yml
+stages:
+  - stage: ValidateDev
+    displayName: 'Validate Development Environment'
+    jobs:
+      - job: ValidateDevResources
+        displayName: 'Validate Dev Resources'
+        steps:
+          - template: ./templates/validate-environment.yml
+            parameters:
+              environment: 'dev'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: ValidateUAT
+    displayName: 'Validate UAT Environment'
+    dependsOn: ValidateDev
+    condition: succeeded()
+    jobs:
+      - job: ValidateUATResources
+        displayName: 'Validate UAT Resources'
+        steps:
+          - template: ./templates/validate-environment.yml
+            parameters:
+              environment: 'uat'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: ValidateProd
+    displayName: 'Validate Production Environment'
+    dependsOn: ValidateUAT
+    condition: succeeded()
+    jobs:
+      - job: ValidateProdResources
+        displayName: 'Validate Prod Resources'
+        steps:
+          - template: ./templates/validate-environment.yml
+            parameters:
+              environment: 'prod'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'

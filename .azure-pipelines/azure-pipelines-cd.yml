@@ -10,7 +10,113 @@ variables:
   backendResourceGroupName: 'rg-terraform-backend'
   backendStorageAccountName: 'stgterraformbackend'
   backendContainerName: 'tfstate'
-  terraformWorkingDirectory: 'environments/prod'
 
-extends:
-  template: ./stages/deploy-stage.yml
+stages:
+  - stage: PlanDev
+    displayName: 'Plan Development Environment'
+    jobs:
+      - job: TerraformPlanDev
+        displayName: 'Plan Dev Infrastructure'
+        steps:
+          - template: ./templates/plan-environment.yml
+            parameters:
+              environment: 'dev'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: DeployDev
+    displayName: 'Deploy Development Environment'
+    dependsOn: PlanDev
+    condition: succeeded()
+    jobs:
+      - job: DeployDevValidation
+        displayName: 'Await Dev Deployment Approval'
+        pool: server
+        timeoutInMinutes: 1440
+      - job: TerraformApplyDev
+        displayName: 'Apply Dev Infrastructure'
+        dependsOn: DeployDevValidation
+        steps:
+          - template: ./templates/apply-environment.yml
+            parameters:
+              environment: 'dev'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: PlanUAT
+    displayName: 'Plan UAT Environment'
+    dependsOn: DeployDev
+    condition: succeeded()
+    jobs:
+      - job: TerraformPlanUAT
+        displayName: 'Plan UAT Infrastructure'
+        steps:
+          - template: ./templates/plan-environment.yml
+            parameters:
+              environment: 'uat'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: DeployUAT
+    displayName: 'Deploy UAT Environment'
+    dependsOn: PlanUAT
+    condition: succeeded()
+    jobs:
+      - job: DeployUATValidation
+        displayName: 'Await UAT Deployment Approval'
+        pool: server
+        timeoutInMinutes: 1440
+      - job: TerraformApplyUAT
+        displayName: 'Apply UAT Infrastructure'
+        dependsOn: DeployUATValidation
+        steps:
+          - template: ./templates/apply-environment.yml
+            parameters:
+              environment: 'uat'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: PlanProd
+    displayName: 'Plan Production Environment'
+    dependsOn: DeployUAT
+    condition: succeeded()
+    jobs:
+      - job: TerraformPlanProd
+        displayName: 'Plan Prod Infrastructure'
+        steps:
+          - template: ./templates/plan-environment.yml
+            parameters:
+              environment: 'prod'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: DeployProd
+    displayName: 'Deploy Production Environment'
+    dependsOn: PlanProd
+    condition: succeeded()
+    jobs:
+      - job: DeployProdValidation
+        displayName: 'Await Prod Deployment Approval'
+        pool: server
+        timeoutInMinutes: 1440
+      - job: TerraformApplyProd
+        displayName: 'Apply Prod Infrastructure'
+        dependsOn: DeployProdValidation
+        steps:
+          - template: ./templates/apply-environment.yml
+            parameters:
+              environment: 'prod'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'

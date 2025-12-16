@@ -1,0 +1,87 @@
+parameters:
+  - name: environment
+    type: string
+  - name: backendServiceArm
+    type: string
+  - name: backendResourceGroupName
+    type: string
+  - name: backendStorageAccountName
+    type: string
+  - name: backendContainerName
+    type: string
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+  
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform $(terraformVersion)'
+    inputs:
+      terraformVersion: '$(terraformVersion)'
+  
+  - task: AzureCLI@2
+    displayName: 'Initialize Backend for ${{ parameters.environment }}'
+    inputs:
+      azureSubscription: '${{ parameters.backendServiceArm }}'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        echo "Initializing Terraform backend for ${{ parameters.environment }}..."
+        
+        # Get storage account key
+        ACCOUNT_KEY=$(az storage account keys list \
+          --resource-group ${{ parameters.backendResourceGroupName }} \
+          --account-name ${{ parameters.backendStorageAccountName }} \
+          --query '[0].value' -o tsv)
+        
+        export ARM_ACCESS_KEY=$ACCOUNT_KEY
+  
+  - script: |
+      echo "Applying Terraform for ${{ parameters.environment }} environment..."
+      cd environments/${{ parameters.environment }}
+      
+      components=(resource-group networking compute database storage security webapp)
+      apply_count=0
+      
+      for component in "${components[@]}"; do
+        if [ -d "$component" ]; then
+          echo ""
+          echo "##[section] Applying component: $component"
+          cd "$component"
+          
+          # Initialize with backend
+          terraform init \
+            -backend=true \
+            -backend-config="resource_group_name=${{ parameters.backendResourceGroupName }}" \
+            -backend-config="storage_account_name=${{ parameters.backendStorageAccountName }}" \
+            -backend-config="container_name=${{ parameters.backendContainerName }}" \
+            -backend-config="key=${{ parameters.environment }}/$component/terraform.tfstate"
+          
+          # Apply using saved plan if available, otherwise with vars
+          if [ -f "tfplan_$component" ]; then
+            echo "Applying from saved plan..."
+            terraform apply -auto-approve tfplan_$component
+          else
+            echo "Applying with variables..."
+            terraform apply -auto-approve \
+              -var-file=terraform.tfvars
+          fi
+          
+          if [ $? -eq 0 ]; then
+            echo "Applied successfully for $component"
+            ((apply_count++))
+          else
+            echo "##[error] Apply failed for component: $component"
+            exit 1
+          fi
+          
+          cd ..
+        fi
+      done
+      
+      echo ""
+      echo "##[section] Apply completed for ${{ parameters.environment }} environment ($apply_count components applied)"
+    displayName: 'Terraform Apply ${{ parameters.environment }}'
+    env:
+      ARM_SUBSCRIPTION_ID: '$(arm_subscription_id)'\n      ARM_CLIENT_ID: '$(arm_client_id)'\n      ARM_CLIENT_SECRET: '$(arm_client_secret)'\n      ARM_TENANT_ID: '$(arm_tenant_id)'\n      TF_IN_AUTOMATION: 'true'
+    continueOnError: false

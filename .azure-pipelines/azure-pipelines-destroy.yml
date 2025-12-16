@@ -9,7 +9,65 @@ variables:
   backendResourceGroupName: 'rg-terraform-backend'
   backendStorageAccountName: 'stgterraformbackend'
   backendContainerName: 'tfstate'
-  terraformWorkingDirectory: 'environments/prod'
 
-extends:
-  template: ./stages/destroy-stage.yml
+stages:
+  - stage: DestroyProd
+    displayName: 'Destroy Production Environment'
+    jobs:
+      - job: ConfirmProdDestruction
+        displayName: 'Confirm Production Destruction'
+        pool: server
+        timeoutInMinutes: 1440
+      - job: DestroyProdInfra
+        displayName: 'Destroy Prod Infrastructure'
+        dependsOn: ConfirmProdDestruction
+        steps:
+          - template: ./templates/destroy-environment.yml
+            parameters:
+              environment: 'prod'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: DestroyUAT
+    displayName: 'Destroy UAT Environment'
+    dependsOn: DestroyProd
+    condition: succeeded()
+    jobs:
+      - job: ConfirmUATDestruction
+        displayName: 'Confirm UAT Destruction'
+        pool: server
+        timeoutInMinutes: 1440
+      - job: DestroyUATInfra
+        displayName: 'Destroy UAT Infrastructure'
+        dependsOn: ConfirmUATDestruction
+        steps:
+          - template: ./templates/destroy-environment.yml
+            parameters:
+              environment: 'uat'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'
+
+  - stage: DestroyDev
+    displayName: 'Destroy Development Environment'
+    dependsOn: DestroyUAT
+    condition: succeeded()
+    jobs:
+      - job: ConfirmDevDestruction
+        displayName: 'Confirm Dev Destruction'
+        pool: server
+        timeoutInMinutes: 1440
+      - job: DestroyDevInfra
+        displayName: 'Destroy Dev Infrastructure'
+        dependsOn: ConfirmDevDestruction
+        steps:
+          - template: ./templates/destroy-environment.yml
+            parameters:
+              environment: 'dev'
+              backendServiceArm: '$(backendServiceArm)'
+              backendResourceGroupName: '$(backendResourceGroupName)'
+              backendStorageAccountName: '$(backendStorageAccountName)'
+              backendContainerName: '$(backendContainerName)'

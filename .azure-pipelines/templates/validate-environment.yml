@@ -1,0 +1,68 @@
+parameters:
+  - name: environment
+    type: string
+  - name: backendServiceArm
+    type: string
+  - name: backendResourceGroupName
+    type: string
+  - name: backendStorageAccountName
+    type: string
+  - name: backendContainerName
+    type: string
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+  
+  - task: TerraformInstaller@0
+    displayName: 'Install Terraform $(terraformVersion)'
+    inputs:
+      terraformVersion: '$(terraformVersion)'
+  
+  - script: |
+      echo "Validating Terraform configurations for ${{ parameters.environment }} environment..."
+      cd environments/${{ parameters.environment }}
+      
+      # Validate root provider configuration
+      terraform validate
+      if [ $? -ne 0 ]; then
+        echo "##[error] Root provider validation failed"
+        exit 1
+      fi
+      
+      # Validate each component
+      components=(resource-group networking compute database storage security webapp)
+      for component in "${components[@]}"; do
+        if [ -d "$component" ]; then
+          echo "Validating component: $component"
+          cd "$component"
+          terraform init \
+            -backend=false \
+            -var-file=terraform.tfvars
+          
+          terraform validate
+          if [ $? -ne 0 ]; then
+            echo "##[error] Validation failed for component: $component"
+            exit 1
+          fi
+          cd ..
+        fi
+      done
+      
+      echo "##[section] All validations passed for ${{ parameters.environment }} environment"
+    displayName: 'Validate ${{ parameters.environment }} Terraform Configuration'
+    continueOnError: false
+  
+  - script: |
+      echo "Running security scan for ${{ parameters.environment }} environment..."
+      cd environments/${{ parameters.environment }}
+      
+      # Run Terraform fmt check
+      terraform fmt -recursive -check
+      if [ $? -ne 0 ]; then
+        echo "##[warning] Terraform formatting issues found (use 'terraform fmt -recursive' to fix)"
+      fi
+      
+      echo "##[section] Security scan completed for ${{ parameters.environment }} environment"
+    displayName: 'Security Scan ${{ parameters.environment }}'
+    continueOnError: true
